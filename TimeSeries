@@ -1,0 +1,84 @@
+library(MASS)
+library(psych)
+library(forecast)
+
+#R sunspot data
+Sun.y <-  sunspot.year
+
+#ACF and PACF of data
+acf(Sun.y, main='Autocorrelations', ylab='',
+    ylim=c(-1, 1), xlim=c(0, 15), ci.col = "black")
+    
+pacf(Sun.y, main='Partial Autocorrelations', ylab='',
+     ylim=c(-1, 1),xlim=c(0, 15), ci.col = "black")
+     
+#plotting dataset
+par(mfrow=c(1,1))
+plot(Sun.y, type = "l")
+ 
+
+#normalizing data via boxcox transformation
+lambda <- BoxCox.lambda(Sun.y,lower=0)
+bc.Sun.y <- BoxCox(Sun.y, lambda = lambda)
+plot(bc.Sun.y)
+
+#create table to compare AIC of each model in the matrix
+#no differencing
+aic_table <- function(data,P,Q){
+  table <- matrix(NA,(P+1),(Q+1))
+  for(p in 0:P) {
+    for(q in 0:Q) {
+      table[p+1,q+1] <- Arima(head(data,-48),order=c(p,0,q))$aic
+    }
+  }
+  dimnames(table) <- list(paste("<b> AR",0:P, "</b>", sep=""),paste("MA",0:Q,sep=""))
+  table
+}
+
+#AR from 1 to 9, and MA from 1 to 9
+sun_aic_table <- aic_table(bc.Sun.y,9,9)
+sun_aic_table<-as.data.frame(sun_aic_table)
+str(sun_aic_table)
+sun_aic_table == min(sun_aic_table)
+
+#plotting table in boxplot
+par(mfrow= c(1,1))
+boxplot(sun_aic_table, ylim = c(700,900))
+
+#modeling data (holding out 48 observations)
+model<- Arima(head(bc.Sun.y,-48), order = c(7,0,6))
+model
+
+#checking residuals of model
+par(mfrow=c(2,2))
+plot(model$residual)
+acf(model$residual)
+pacf(model$residual)
+qqnorm(model$residual)
+qqline(model$residual)
+
+#checking roots- which are not within unit circle (Stationarity)
+roots <- polyroot(c(1,-coef(model)[c("ma1","ma2")]))
+roots
+
+summary(model)
+
+#checking model with auto.arima function
+auto.m <- auto.arima(head(bc.Sun.y, -48), max.p = 8, max.q = 8, max.d = 2)
+print(auto.m)
+
+autoplot(auto.m)
+autoplot(model)
+
+#forcasting and calculating accuracy of model (on validation set)
+auto.forecasts48 <- forecast(auto.m, h = 48)
+autoplot(auto.forecasts48)
+
+forecasts48 <- forecast(model, h = 48)
+autoplot(forecasts48)
+
+accuracy(auto.forecasts48, head(tail(bc.Sun.y, 48), 48))
+accuracy(forecasts48, head(tail(bc.Sun.y, 48), 48))
+
+#created model > auto model
+
