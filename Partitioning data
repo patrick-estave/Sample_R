@@ -5,3 +5,8 @@ smp_size <- floor(0.8 * nrow(Real.estate))
 ## set the seed to make your partition reproducible
 set.seed(123)
 train_ind <- sample(seq_len(nrow(Real.estate)), size = smp_size)
+
+#creating training set and test set
+train <- Real.estate[train_ind, ]
+test <- Real.estate[-train_ind, ]
+y.test<-train$Y
